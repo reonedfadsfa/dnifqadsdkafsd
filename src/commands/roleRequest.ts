@@ -71,7 +71,7 @@ export async function handleRoleRequest(interaction: ChatInputCommandInteraction
           : `<@${requesterUser.id}> | ${requesterUser.username}`,
         inline: true,
       },
-      { name: 'Approved By', value: 'Pending', inline: true },
+      { name: 'Reviewed By', value: 'Pending', inline: true },
       { name: 'Role to Add', value: `${role}\n${role.name} | ${role.id}` }
     )
     .setTimestamp()
@@ -122,7 +122,7 @@ export async function handleRoleRequestButton(interaction: ButtonInteraction): P
 
   if (isApprove) {
     try {
-      await targetMember.roles.add(roleId, `Role request approved by ${interaction.user.tag}`);
+      await targetMember.roles.add(roleId, `Role request Reviewed By ${interaction.user.tag}`);
     } catch {
       await interaction.followUp({ content: '❌ Failed to assign the role. Check bot permissions.', ephemeral: true });
       return;
@@ -134,7 +134,7 @@ export async function handleRoleRequestButton(interaction: ButtonInteraction): P
 
   const updatedEmbed = EmbedBuilder.from(oldEmbed)
     .setColor(isApprove ? 0x57f287 : 0xed4245)
-    .spliceFields(2, 1, { name: 'Approved By', value: `${interaction.user} | ${member.displayName}`, inline: true })
+    .spliceFields(2, 1, { name: 'Reviewed By', value: `${interaction.user} | ${member.displayName}`, inline: true })
     .addFields({ name: 'Status', value: isApprove ? 'Approved' : 'Denied' });
 
   const resultRow = new ActionRowBuilder<ButtonBuilder>().addComponents(

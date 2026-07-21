@@ -116,9 +116,9 @@ export async function handleRecruit(interaction: ChatInputCommandInteraction): P
   const config = getGuildConfig(interaction.guild.id);
 
   if (config.recruitLogChannel) {
-    const logChannel = interaction.guild.channels.cache.get(
+    const logChannel = await interaction.guild.channels.fetch(
       config.recruitLogChannel
-    ) as TextChannel | undefined;
+    ) as TextChannel | null;
 
     if (logChannel) {
       await logChannel.send({

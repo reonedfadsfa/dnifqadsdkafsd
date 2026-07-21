@@ -1,197 +1,130 @@
 import {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  REST,
-  Routes,
-  Collection,
   ChatInputCommandInteraction,
-  Interaction,
-  ButtonInteraction,
-  Channel,
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  EmbedBuilder,
+  TextChannel,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
 
-import { roleChannelCommand, handleRoleChannel } from './commands/roleChannel.js';
-import { roleCommand, handleRole } from './commands/role.js';
-import { queCommand, handleQue } from './commands/que.js';
-import { roleRequestCommand, handleRoleRequest, handleRoleRequestButton } from './commands/roleRequest.js';
-import { recruitCommand, handleRecruit } from './commands/recruit.js';
-import { recruitLogCommand, handleRecruitLog } from './commands/recruitLog.js';
-import { taskLogCommand, handleTaskLog, handleTaskLogButton } from './commands/taskLog.js';
-import { totalTasksCommand, handleTotalTasks, handleTotalTasksButton } from './commands/totalTasks.js';
-import { loaChannelCommand, handleLoaChannel } from './commands/loaChannel.js';
-import { loaRequestCommand, handleLoaRequest, handleLoaButton } from './commands/loaRequest.js';
-import { rosterCommand, handleRoster } from './commands/roster.js';
-import { handleChannelCreate } from './events/missedPromo.js';
+import { getGuildConfig } from '../storage.js';
+import { PRIVILEGED_ROLE_ID, RECRUIT_ROLE_1_ID, RECRUIT_ROLE_2_ID } from '../config.js';
 
-const TOKEN = process.env.DISCORD_BOT_TOKEN;
-if (!TOKEN) {
-  console.error('❌ DISCORD_BOT_TOKEN environment variable is not set.');
-  process.exit(1);
-}
+export const recruitCommand = new SlashCommandBuilder()
+  .setName('recruit')
+  .setDescription('Recruit a user by assigning them the recruit roles')
+  .addUserOption((opt) =>
+    opt
+      .setName('user')
+      .setDescription('The user to recruit')
+      .setRequired(true)
+  )
+  .addStringOption((opt) =>
+    opt
+      .setName('name')
+      .setDescription('The recruit name')
+      .setRequired(true)
+  );
 
-const commands = [
-  roleChannelCommand,
-  roleCommand,
-  queCommand,
-  roleRequestCommand,
-  recruitCommand,
-  recruitLogCommand,
-  taskLogCommand,
-  totalTasksCommand,
-  loaChannelCommand,
-  loaRequestCommand,
-  rosterCommand,
-];
-
-const commandHandlers = new Collection<
-  string,
-  (interaction: ChatInputCommandInteraction) => Promise<void>
->();
-
-commandHandlers.set('rolechannel', handleRoleChannel);
-commandHandlers.set('role', handleRole);
-commandHandlers.set('que', handleQue);
-commandHandlers.set('rolerequest', handleRoleRequest);
-commandHandlers.set('recruit', handleRecruit);
-commandHandlers.set('recruitlog', handleRecruitLog);
-commandHandlers.set('tasklog', handleTaskLog);
-commandHandlers.set('totaltasks', handleTotalTasks);
-commandHandlers.set('loachannel', handleLoaChannel);
-commandHandlers.set('loarequest', handleLoaRequest);
-commandHandlers.set('roster', handleRoster);
-
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-  ],
-  partials: [Partials.GuildMember],
-});
-
-client.once('clientReady', async (readyClient) => {
-  console.log(`✅ Logged in as ${readyClient.user.tag}`);
-
-  const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-  try {
-    console.log('🔄 Registering slash commands...');
-
-    await rest.put(
-      Routes.applicationCommands(readyClient.user.id),
-      {
-        body: commands.map((cmd) => cmd.toJSON()),
-      }
-    );
-
-    console.log(`✅ Registered ${commands.length} slash commands globally.`);
-  } catch (err) {
-    console.error('❌ Failed to register slash commands:', err);
-  }
-});
-
-client.on('channelCreate', async (channel: Channel) => {
-  try {
-    await handleChannelCreate(channel);
-  } catch (err) {
-    console.error('Error handling channelCreate:', err);
-  }
-});
-
-client.on('interactionCreate', async (interaction: Interaction) => {
-  if (interaction.isChatInputCommand()) {
-    const handler = commandHandlers.get(interaction.commandName);
-
-    if (!handler) return;
-
-    try {
-      await handler(interaction);
-    } catch (err) {
-      console.error(`Error handling /${interaction.commandName}:`, err);
-
-      const msg = {
-        content: '❌ An error occurred while running this command.',
-        ephemeral: true,
-      };
-
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(msg).catch(() => null);
-      } else {
-        await interaction.reply(msg).catch(() => null);
-      }
-    }
-
+export async function handleRecruit(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!interaction.guild) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
+      ephemeral: true,
+    });
     return;
   }
 
-  if (interaction.isButton()) {
-    const btn = interaction as ButtonInteraction;
+  const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    if (
-      btn.customId.startsWith('rr_approve_') ||
-      btn.customId.startsWith('rr_deny_')
-    ) {
-      try {
-        await handleRoleRequestButton(btn);
-      } catch (err) {
-        console.error('Error handling role request button:', err);
-        await btn.reply({
-          content: '❌ An error occurred.',
-          ephemeral: true,
-        }).catch(() => null);
-      }
-      return;
-    }
+  const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
+  const hasPrivilegedRole = member.roles.cache.has(PRIVILEGED_ROLE_ID);
 
-    if (
-      btn.customId.startsWith('tl_approve_') ||
-      btn.customId.startsWith('tl_deny_')
-    ) {
-      try {
-        await handleTaskLogButton(btn);
-      } catch (err) {
-        console.error('Error handling task log button:', err);
-        await btn.reply({
-          content: '❌ An error occurred.',
-          ephemeral: true,
-        }).catch(() => null);
-      }
-      return;
-    }
+  if (!isAdmin && !hasPrivilegedRole) {
+    await interaction.reply({
+      content: '❌ You do not have permission to use this command.',
+      ephemeral: true,
+    });
+    return;
+  }
 
-    if (
-      btn.customId === 'tt_start_cycle' ||
-      btn.customId === 'tt_cancel'
-    ) {
-      try {
-        await handleTotalTasksButton(btn);
-      } catch (err) {
-        console.error('Error handling total tasks button:', err);
-        await btn.reply({
-          content: '❌ An error occurred.',
-          ephemeral: true,
-        }).catch(() => null);
-      }
-      return;
-    }
+  const targetUser = interaction.options.getUser('user', true);
+  const recruitName = interaction.options.getString('name', true);
 
-    if (
-      btn.customId.startsWith('loa_approve_') ||
-      btn.customId.startsWith('loa_deny_')
-    ) {
-      try {
-        await handleLoaButton(btn);
-      } catch (err) {
-        console.error('Error handling LOA button:', err);
-        await btn.reply({
-          content: '❌ An error occurred.',
-          ephemeral: true,
-        }).catch(() => null);
+  const targetMember = await interaction.guild.members
+    .fetch(targetUser.id)
+    .catch(() => null);
+
+  if (!targetMember) {
+    await interaction.reply({
+      content: '❌ Could not find that user in this server.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await targetMember.roles.add(
+      [RECRUIT_ROLE_1_ID, RECRUIT_ROLE_2_ID],
+      `Recruited by ${interaction.user.tag}`
+    );
+  } catch {
+    await interaction.editReply({
+      content:
+        '❌ Failed to assign recruit roles. Make sure the bot has proper permissions.',
+    });
+    return;
+  }
+
+  const recruitEmbed = new EmbedBuilder()
+    .setTitle('New Recruit')
+    .setColor(0x5865f2)
+    .addFields(
+      {
+        name: 'Recruit',
+        value: `${targetMember}\n**LSM | ${recruitName}**`,
+        inline: true,
+      },
+      {
+        name: 'Recruiter',
+        value: `${interaction.user}\n${interaction.user.tag}`,
+        inline: true,
       }
-      return;
+    )
+    .setDescription('**Please Add To The Roster**')
+    .setThumbnail(targetMember.user.displayAvatarURL({ size: 256 }))
+    .setTimestamp()
+    .setFooter({
+      text: 'Recruitment',
+    });
+
+  const button = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`recruit_complete_${targetMember.id}`)
+      .setLabel('✅ Completed')
+      .setStyle(ButtonStyle.Success)
+  );
+
+  await interaction.editReply({
+    content: `✅ Successfully recruited ${targetMember}.`,
+  });
+
+  const config = getGuildConfig(interaction.guild.id);
+
+  if (config.recruitLogChannel) {
+    const logChannel = interaction.guild.channels.cache.get(
+      config.recruitLogChannel
+    ) as TextChannel | undefined;
+
+    if (logChannel) {
+      await logChannel.send({
+        embeds: [recruitEmbed],
+        components: [button],
+      });
     }
   }
-});
-
-client.login(TOKEN);
+}

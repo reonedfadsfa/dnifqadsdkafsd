@@ -1,1 +1,19 @@
-
+{
+  "guilds": {
+    "1525613980197064724": {
+      "recruitLogChannel": "1525622025559998574",
+      "roleRequestChannel": "1528442130073387148",
+      "roleChannel": "1529567687779553530",
+      "taskLogs": {
+        "Consigliere": {
+          "1213972467882926142": 1
+        }
+      },
+      "allowedRolesForRequest": [],
+      "disallowedRolesForRequest": [
+        "1525733468292517999"
+      ],
+      "loaChannel": "1526633345885274112"
+    }
+  }
+}

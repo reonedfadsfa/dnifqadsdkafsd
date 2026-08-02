@@ -19,11 +19,6 @@ export const taskLogCommand = new SlashCommandBuilder()
         { name: 'Pre-Command',  value: 'Pre-Command'  },
       )
   )
-  .addBooleanOption((opt) =>
-    opt.setName('pre_command')
-      .setDescription('Are you a Pre-Command member (being evaluated for this rank)?')
-      .setRequired(true)
-  )
   .addStringOption((opt) => opt.setName('task').setDescription('The task you completed').setRequired(true))
   .addStringOption((opt) => opt.setName('proof').setDescription('Proof of completion (URL, link, or description)').setRequired(true));
 

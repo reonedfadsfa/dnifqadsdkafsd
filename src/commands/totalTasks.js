@@ -20,15 +20,8 @@ export const totalTasksCommand = new SlashCommandBuilder()
       .addChoices(
         { name: "Consigliere", value: "Consigliere" },
         { name: "Executive", value: "Executive" },
-        { name: "Supervisor", value: "Supervisor" },
-        { name: "Pre-Command", value: "Pre-Command" },
-      ),
-  )
-  .addBooleanOption((opt) =>
-    opt
-      .setName("pre_command")
-      .setDescription("View the Pre-Command leaderboard for this rank?")
-      .setRequired(true),
+        { name: "Supervisor", value: "Supervisor" }
+      )
   );
 
 export async function handleTotalTasks(interaction) {
@@ -40,20 +33,20 @@ export async function handleTotalTasks(interaction) {
   }
 
   const rank = interaction.options.getString("rank", true);
-  const preCommand = interaction.options.getBoolean("pre_command", true);
-  const rankKey = preCommand ? `Pre-${rank}` : rank;
 
   await interaction.deferReply();
 
-  const logs = getTaskLogs(interaction.guild.id, rankKey);
+  const logs = getTaskLogs(interaction.guild.id, rank);
   const entries = Object.entries(logs).sort(([, a], [, b]) => b - a);
+
   const embed = await buildLeaderboardEmbed(
     entries,
     interaction.guild,
-    rankKey,
+    rank
   );
 
-  const encodedRank = encodeURIComponent(rankKey);
+  const encodedRank = encodeURIComponent(rank);
+
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`tt_start_cycle_${encodedRank}`)
@@ -62,37 +55,43 @@ export async function handleTotalTasks(interaction) {
     new ButtonBuilder()
       .setCustomId("tt_cancel")
       .setLabel("Cancel")
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Secondary)
   );
 
-  await interaction.editReply({ embeds: [embed], components: [row] });
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row],
+  });
 }
 
-async function buildLeaderboardEmbed(entries, guild, rankKey) {
+async function buildLeaderboardEmbed(entries, guild, rank) {
   let description;
 
   if (entries.length === 0) {
-    description = `*No approved task logs yet this cycle for **${rankKey}**.*`;
+    description = `*No approved task logs yet this cycle for **${rank}**.*`;
   } else {
     const medals = ["🥇", "🥈", "🥉"];
+
     const lines = await Promise.all(
       entries.map(async ([userId, count], index) => {
         const member = await guild.members.fetch(userId).catch(() => null);
         const name = member ? member.displayName : `<@${userId}>`;
         const medal = medals[index] ?? `**${index + 1}.**`;
+
         return `${medal} ${name} — **${count}** approved task${count === 1 ? "" : "s"}`;
-      }),
+      })
     );
+
     description = lines.join("\n");
   }
 
   return new EmbedBuilder()
-    .setTitle(`📋 Total Tasks — ${rankKey} • Current Cycle`)
+    .setTitle(`📋 Total Tasks — ${rank} • Current Cycle`)
     .setColor(0x5865f2)
     .setDescription(description)
     .setTimestamp()
     .setFooter({
-      text: `${rankKey} Leaderboard • Use "Start New Cycle" to reset counts`,
+      text: `${rank} Leaderboard • Use "Start New Cycle" to reset counts`,
     });
 }
 
@@ -100,14 +99,21 @@ export async function handleTotalTasksButton(interaction) {
   if (!interaction.guild) return;
 
   if (interaction.customId === "tt_cancel") {
-    return interaction.update({ components: [] });
+    return interaction.update({
+      components: [],
+    });
   }
 
   if (interaction.customId.startsWith("tt_start_cycle_")) {
-    const encodedRank = interaction.customId.slice("tt_start_cycle_".length);
-    const rankKey = decodeURIComponent(encodedRank);
+    const encodedRank = interaction.customId.slice(
+      "tt_start_cycle_".length
+    );
+    const rank = decodeURIComponent(encodedRank);
+
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
+    const isAdmin = member.permissions.has(
+      PermissionFlagsBits.Administrator
+    );
 
     if (!isAdmin && !member.roles.cache.has(TASK_APPROVER_ROLE_ID)) {
       return interaction.reply({
@@ -116,17 +122,22 @@ export async function handleTotalTasksButton(interaction) {
       });
     }
 
-    resetTaskLogs(interaction.guild.id, rankKey);
+    resetTaskLogs(interaction.guild.id, rank);
 
     const freshEmbed = new EmbedBuilder()
-      .setTitle(`📋 Total Tasks — ${rankKey} • New Cycle Started`)
+      .setTitle(`📋 Total Tasks — ${rank} • New Cycle Started`)
       .setColor(0x57f287)
       .setDescription(
-        `*A new cycle has begun. **${rankKey}** task counts have been reset.*`,
+        `*A new cycle has begun. **${rank}** task counts have been reset.*`
       )
       .setTimestamp()
-      .setFooter({ text: `Cycle reset by ${member.displayName}` });
+      .setFooter({
+        text: `Cycle reset by ${member.displayName}`,
+      });
 
-    await interaction.update({ embeds: [freshEmbed], components: [] });
+    await interaction.update({
+      embeds: [freshEmbed],
+      components: [],
+    });
   }
 }

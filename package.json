@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.js"
+    "dev": "tsx src/index.js",
+    "start": "node src/index.js"
   },
   "dependencies": {
     "discord.js": "^14.16.3"
   },
   "devDependencies": {
-    "tsx": "catalog:"
+    "tsx": "^4.20.3"
   }
 }

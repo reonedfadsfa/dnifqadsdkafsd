@@ -1,0 +1,10 @@
+{
+  "privilegedRoleId": "1525747168739197098",
+  "roleApproverRoleId": "1525733468292517999",
+  "taskApproverRoleId": "1525744799099912265",
+  "recruitRole1Id": "1525621977170051102",
+  "recruitRole2Id": "1525735901546676335",
+  "loaRoleId": "1528446076598751332",
+  "missedPromoCategoryId": "1525748687697875006",
+  "missedPromoDelayMs": 2000
+}
